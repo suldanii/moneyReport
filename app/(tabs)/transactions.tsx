@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addTransaction } from '@/store/transactionSlice';
@@ -19,7 +20,8 @@ import {
   EXPENSE_CATEGORIES,
   FUND_SOURCES,
 } from '@/constants/categories';
-import { Plus, Minus } from 'lucide-react-native';
+import { Plus, Minus, Calendar } from 'lucide-react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function TransactionsScreen() {
   const dispatch = useDispatch();
@@ -28,8 +30,25 @@ export default function TransactionsScreen() {
   const [category, setCategory] = useState('');
   const [source, setSource] = useState<'Bank' | 'Cash' | 'E-Wallet'>('Bank');
   const [description, setDescription] = useState('');
+  const [date, setDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios'); // Tetap terbuka di iOS, tutup di Android
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
 
   const handleSubmit = async () => {
     const numericAmount = parseFormattedNumber(amount);
@@ -45,7 +64,7 @@ export default function TransactionsScreen() {
       amount: numericAmount,
       category,
       source,
-      date: new Date().toISOString(),
+      date: date.toISOString(), // Gunakan tanggal yang dipilih
       description: description || undefined,
     };
 
@@ -60,6 +79,7 @@ export default function TransactionsScreen() {
       setAmount('');
       setCategory('');
       setDescription('');
+      setDate(new Date()); // Reset ke tanggal hari ini
 
       Alert.alert('Sukses', 'Transaksi berhasil ditambahkan');
     } catch (error) {
@@ -138,6 +158,18 @@ export default function TransactionsScreen() {
           placeholder="0"
         />
 
+        {/* Date Selection */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Tanggal Transaksi *</Text>
+          <TouchableOpacity 
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Calendar size={20} color="#3B82F6" />
+            <Text style={styles.dateText}>{formatDate(date)}</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Category Selection */}
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Kategori *</Text>
@@ -210,6 +242,16 @@ export default function TransactionsScreen() {
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>Simpan Transaksi</Text>
         </TouchableOpacity>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={date}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
       </Card>
     </ScrollView>
   );
@@ -226,10 +268,10 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16, // 🔹 tambahin biar ada tinggi header
+    paddingVertical: 16,
     marginBottom: 24,
     backgroundColor: '#FCC61D',
-    borderBottomLeftRadius: 16, // 🔹 kasih rounded bawah biar manis
+    borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
   headerTitle: {
@@ -243,11 +285,6 @@ const styles = StyleSheet.create({
     color: '#3338A0',
     opacity: 0.9,
     marginTop: 4,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: 'Inter-SemiBold',
-    color: '#111827',
   },
   sectionTitle: {
     fontSize: 16,
@@ -291,6 +328,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: '#374151',
     marginBottom: 8,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dateText: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#111827',
+    marginLeft: 12,
   },
   categoryScroll: {
     flexDirection: 'row',
