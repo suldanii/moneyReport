@@ -274,7 +274,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
   },
   balanceGrid: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 8,
   },

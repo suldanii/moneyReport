@@ -52,16 +52,16 @@ export default function BalanceCard({ source, balance }: BalanceCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    marginHorizontal: 4,
+    width: '30%', // Mengatur lebar untuk 3 item per baris
+    marginBottom: 16,
     flexDirection: 'column',
-    alignItems: 'center', // 🔹 bikin rata tengah
+    alignItems: 'center',
     justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // 🔹 teks + icon di tengah
+    justifyContent: 'center',
     marginBottom: 8,
   },
   source: {
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     color: '#6B7280',
     marginLeft: 8,
-    textAlign: 'center', // 🔹 pastikan teks rata tengah
+    textAlign: 'center',
   },
   balance: {
     fontSize: 16,
     fontFamily: 'Inter-SemiBold',
-    textAlign: 'center', // 🔹 saldo di tengah
+    textAlign: 'center',
   },
 });
