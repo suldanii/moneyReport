@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, useWindowDimensions } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { LineChart } from 'react-native-chart-kit';
 import { RootState } from '@/store';
@@ -8,19 +8,32 @@ import { setBudgets } from '@/store/budgetSlice';
 import { setTransfers } from '@/store/balanceSlice';
 import Card from '@/components/Card';
 import BalanceCard from '@/components/BalanceCard';
-import { calculateBalance, getMonthlyData } from '@/utils/calculations';
+import { calculateBalance, getChartData, getDateRangeData, getMonthlyData } from '@/utils/calculations';
 import { loadTransactions, loadBudgets, loadTransfers } from '@/utils/storage';
 import { formatCurrency } from '@/utils/formatNumber';
 import { FUND_SOURCES } from '@/constants/categories';
+import DateRangeFilter from './DateRangeFilter';
 
-const screenWidth = Dimensions.get('window').width;
+// Definisikan tipe untuk chart data
+interface ChartData {
+  months: string[];
+  incomeData: number[];
+  expenseData: number[];
+}
+
 
 export default function HomeScreen() {
   const dispatch = useDispatch();
-  const transactions = useSelector(
-    (state: RootState) => state.transactions.transactions
-  );
+  const transactions = useSelector((state: RootState) => state.transactions.transactions);
   const transfers = useSelector((state: RootState) => state.balance.transfers);
+  const { width: screenWidth } = useWindowDimensions();
+  
+  const [dateRangeData, setDateRangeData] = useState({ income: 0, expenses: 0 });
+  const [chartData, setChartData] = useState<ChartData>({ 
+    months: [], 
+    incomeData: [], 
+    expenseData: [] 
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -35,6 +48,16 @@ export default function HomeScreen() {
         dispatch(setTransactions(loadedTransactions));
         dispatch(setBudgets(loadedBudgets));
         dispatch(setTransfers(loadedTransfers));
+        
+        // Hitung data awal
+        const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const today = new Date();
+        const data = getDateRangeData(loadedTransactions, firstDayOfMonth, today);
+        setDateRangeData(data);
+        
+        // Set data chart
+        const chartDataResult = getChartData(loadedTransactions);
+        setChartData(chartDataResult);
       } catch (error) {
         console.error('Error loading data:', error);
       }
@@ -43,37 +66,10 @@ export default function HomeScreen() {
     loadData();
   }, [dispatch]);
 
-  // Get last 6 months data for chart
-  const getChartData = () => {
-    const months = [];
-    const incomeData = [];
-    const expenseData = [];
-
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-
-      const monthData = getMonthlyData(
-        transactions,
-        date.getFullYear(),
-        date.getMonth()
-      );
-
-      months.push(date.toLocaleDateString('id-ID', { month: 'short' }));
-      incomeData.push(monthData.income / 1000000); // Convert to millions for better chart display
-      expenseData.push(monthData.expenses / 1000000);
-    }
-
-    return { months, incomeData, expenseData };
+  const handleDateRangeChange = (startDate: Date, endDate: Date) => {
+    const data = getDateRangeData(transactions, startDate, endDate);
+    setDateRangeData(data);
   };
-
-  const chartData = getChartData();
-  const currentDate = new Date();
-  const currentMonth = getMonthlyData(
-    transactions,
-    currentDate.getFullYear(),
-    currentDate.getMonth()
-  );
 
   return (
     <ScrollView
@@ -84,27 +80,30 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Dashboard</Text>
         <Text style={styles.headerSubtitle}>
-          {currentDate.toLocaleDateString('id-ID', {
+          {new Date().toLocaleDateString('id-ID', {
             month: 'long',
             year: 'numeric',
           })}
         </Text>
       </View>
 
-      {/* Current Month Summary */}
-      <Card>
-        <Text style={styles.cardTitle}>Ringkasan Bulan Ini</Text>
+      {/* Date Range Filter */}
+      <DateRangeFilter onDateRangeChange={handleDateRangeChange} />
+
+      {/* Current Period Summary */}
+      <Card style={styles.card}>
+        <Text style={styles.cardTitle}>Ringkasan Periode Terpilih</Text>
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Pemasukan</Text>
             <Text style={[styles.summaryValue, { color: '#10B981' }]}>
-              {formatCurrency(currentMonth.income)}
+              {formatCurrency(dateRangeData.income)}
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Pengeluaran</Text>
             <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
-              {formatCurrency(currentMonth.expenses)}
+              {formatCurrency(dateRangeData.expenses)}
             </Text>
           </View>
         </View>
@@ -114,14 +113,13 @@ export default function HomeScreen() {
             style={[
               styles.netIncomeValue,
               {
-                color:
-                  currentMonth.income - currentMonth.expenses >= 0
-                    ? '#10B981'
-                    : '#EF4444',
+                color: dateRangeData.income - dateRangeData.expenses >= 0
+                  ? '#10B981'
+                  : '#EF4444',
               },
             ]}
           >
-            {formatCurrency(currentMonth.income - currentMonth.expenses)}
+            {formatCurrency(dateRangeData.income - dateRangeData.expenses)}
           </Text>
         </View>
       </Card>
@@ -139,9 +137,9 @@ export default function HomeScreen() {
       </View>
 
       {/* Chart */}
-      <Card>
+      <Card style={styles.card}>
         <Text style={styles.cardTitle}>Tren 6 Bulan Terakhir</Text>
-        {transactions.length > 0 ? (
+        {transactions.length > 0 && chartData.months.length > 0 ? (
           <LineChart
             data={{
               labels: chartData.months,
@@ -237,6 +235,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 12,
     marginTop: 8,
+  },
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   cardTitle: {
     fontSize: 18,

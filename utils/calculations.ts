@@ -26,7 +26,11 @@ export const calculateBalance = (
   return transactionBalance + transferBalance;
 };
 
-export const getMonthlyData = (transactions: Transaction[], year: number, month: number) => {
+export const getMonthlyData = (
+  transactions: Transaction[], 
+  year: number, 
+  month: number
+): { income: number; expenses: number } => {
   const filtered = transactions.filter(t => {
     const date = new Date(t.date);
     return date.getFullYear() === year && date.getMonth() === month;
@@ -41,6 +45,62 @@ export const getMonthlyData = (transactions: Transaction[], year: number, month:
     .reduce((sum, t) => sum + t.amount, 0);
 
   return { income, expenses };
+};
+
+// Fungsi baru untuk mendapatkan data berdasarkan rentang tanggal
+export const getDateRangeData = (
+  transactions: Transaction[], 
+  startDate: Date, 
+  endDate: Date
+): { income: number; expenses: number } => {
+  // Pastikan waktu diatur dengan benar untuk perbandingan tanggal
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const filtered = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate >= start && transactionDate <= end;
+  });
+
+  const income = filtered
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const expenses = filtered
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return { income, expenses };
+};
+
+// Fungsi untuk mendapatkan data chart berdasarkan rentang bulan
+export const getChartData = (
+  transactions: Transaction[], 
+  monthsCount: number = 6
+): { months: string[]; incomeData: number[]; expenseData: number[] } => {
+  const months: string[] = [];
+  const incomeData: number[] = [];
+  const expenseData: number[] = [];
+
+  for (let i = monthsCount - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+
+    const monthData = getMonthlyData(
+      transactions,
+      date.getFullYear(),
+      date.getMonth()
+    );
+
+    months.push(date.toLocaleDateString('id-ID', { month: 'short' }));
+    incomeData.push(monthData.income / 1000000); // Convert to millions for better chart display
+    expenseData.push(monthData.expenses / 1000000);
+  }
+
+  return { months, incomeData, expenseData };
 };
 
 export const getCategorySpending = (
