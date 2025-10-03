@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,11 @@ import FormattedInput from '@/components/FormattedInput';
 import { parseFormattedNumber } from '@/utils/formatNumber';
 import {
   INCOME_CATEGORIES,
-  EXPENSE_CATEGORIES,
   FUND_SOURCES,
 } from '@/constants/categories';
 import { Plus, Minus, Calendar } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useExpenses } from '@/hooks/useExpenses';
 
 export default function TransactionsScreen() {
   const dispatch = useDispatch();
@@ -32,8 +32,23 @@ export default function TransactionsScreen() {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const expenses = useExpenses(); // Gunakan custom hook
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+   // Load income categories (jika masih menggunakan async)
+  // useEffect(() => {
+  //   const loadIncomeCats = async () => {
+  //     try {
+  //       const incomeCats = await getIncomeCategories();
+  //       setIncomeCategories(incomeCats);
+  //     } catch (error) {
+  //       console.error('Error loading income categories:', error);
+  //     }
+  //   };
+
+  //   loadIncomeCats();
+  // }, []);
+
+  const categories = type === 'income' ? INCOME_CATEGORIES : expenses.map(expense => expense.name);
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios'); // Tetap terbuka di iOS, tutup di Android

@@ -2,11 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Transaction } from '@/store/transactionSlice';
 import { Budget } from '@/store/budgetSlice';
 import { Transfer } from '@/store/balanceSlice';
+import { Expense } from '@/store/expenseSlice';
 
 const STORAGE_KEYS = {
   TRANSACTIONS: 'budgeting_transactions',
   BUDGETS: 'budgeting_budgets',
   TRANSFERS: 'budgeting_transfers',
+  EXPENSES: 'expenses', // Key baru untuk expenses
 };
 
 export const saveTransactions = async (transactions: Transaction[]) => {
@@ -42,6 +44,42 @@ export const loadBudgets = async (): Promise<Budget[]> => {
   } catch (error) {
     console.error('Error loading budgets:', error);
     return [];
+  }
+};
+
+// Default expenses untuk inisialisasi
+const DEFAULT_EXPENSES: Expense[] = [
+  { id: '1', name: 'Makanan', isDefault: true },
+  { id: '2', name: 'Transport', isDefault: true },
+  { id: '3', name: 'Hiburan', isDefault: true },
+  { id: '4', name: 'Belanja', isDefault: true },
+  { id: '5', name: 'Tagihan', isDefault: true },
+  { id: '6', name: 'Kesehatan', isDefault: true },
+  { id: '7', name: 'Pendidikan', isDefault: true },
+  { id: '8', name: 'Lainnya', isDefault: true },
+];
+
+export const saveExpenses = async (expenses: Expense[]) => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+  } catch (error) {
+    console.error('Error saving expenses:', error);
+  }
+};
+
+export const loadExpenses = async (): Promise<Expense[]> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.EXPENSES);
+    if (data) {
+      return JSON.parse(data);
+    } else {
+      // Jika pertama kali, simpan default expenses
+      await saveExpenses(DEFAULT_EXPENSES);
+      return DEFAULT_EXPENSES;
+    }
+  } catch (error) {
+    console.error('Error loading expenses:', error);
+    return DEFAULT_EXPENSES;
   }
 };
 

@@ -7,18 +7,43 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  TextInput,
+  FlatList,
 } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { RootState } from '@/store';
+import { addExpense, removeExpense, updateExpense } from '@/store/expenseSlice';
 import Card from '@/components/Card';
 import { exportData, importData } from '@/utils/storage';
-import { Download, Upload, FileText, Shield } from 'lucide-react-native';
+import { 
+  Download, 
+  Upload, 
+  FileText, 
+  Shield, 
+  FolderOpen, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  X,
+  Check,
+  Lock
+} from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const expenses = useSelector((state: RootState) => state.expense.expenses);
+  
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
 
   const handleExport = async () => {
     try {
@@ -29,7 +54,6 @@ export default function SettingsScreen() {
       const fileName = `budgeting-backup-${new Date().toISOString().slice(0, 10)}.json`;
       
       if (Platform.OS === 'web') {
-        // For web platform
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -38,7 +62,6 @@ export default function SettingsScreen() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        // For mobile platforms
         const fileUri = `${DocumentPicker.documentDirectory}${fileName}`;
         await Sharing.shareAsync(fileUri, {
           mimeType: 'application/json',
@@ -68,14 +91,11 @@ export default function SettingsScreen() {
         return;
       }
 
-      // Read file content
       let fileContent = '';
       if (Platform.OS === 'web') {
         const response = await fetch(result.assets[0].uri);
         fileContent = await response.text();
       } else {
-        // For mobile platforms - you would need expo-file-system
-        // For now, we'll show an alert that import is not fully supported on mobile
         Alert.alert('Info', 'Import pada mobile memerlukan konfigurasi tambahan');
         setIsImporting(false);
         return;
@@ -83,7 +103,6 @@ export default function SettingsScreen() {
 
       const importedData = JSON.parse(fileContent);
       
-      // Validate data structure
       if (!importedData.transactions || !importedData.budgets || !importedData.transfers) {
         throw new Error('Format file tidak valid');
       }
@@ -114,19 +133,169 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Error', 'Nama kategori tidak boleh kosong');
+      return;
+    }
+
+    // Check if category already exists
+    const exists = expenses.some(
+      expense => expense.name.toLowerCase() === newCategoryName.toLowerCase()
+    );
+
+    if (exists) {
+      Alert.alert('Error', 'Kategori sudah ada');
+      return;
+    }
+
+    const newCategory = {
+      id: Date.now().toString(),
+      name: newCategoryName.trim(),
+      isDefault: false,
+    };
+
+    dispatch(addExpense(newCategory));
+    setNewCategoryName('');
+    setIsAddingCategory(false);
+    Alert.alert('Sukses', 'Kategori berhasil ditambahkan');
+  };
+
+  const handleEditCategory = () => {
+    if (!newCategoryName.trim()) {
+      Alert.alert('Error', 'Nama kategori tidak boleh kosong');
+      return;
+    }
+
+    // Check if category already exists (excluding the current one)
+    const exists = expenses.some(
+      expense => 
+        expense.name.toLowerCase() === newCategoryName.toLowerCase() && 
+        expense.id !== editingCategory.id
+    );
+
+    if (exists) {
+      Alert.alert('Error', 'Kategori sudah ada');
+      return;
+    }
+
+    dispatch(updateExpense({
+      oldName: editingCategory.name,
+      newName: newCategoryName.trim(),
+    }));
+
+    setEditingCategory(null);
+    setNewCategoryName('');
+    setShowCategoryModal(false);
+    Alert.alert('Sukses', 'Kategori berhasil diubah');
+  };
+
+  const handleDeleteCategory = (category: any) => {
+    if (category.isDefault) {
+      Alert.alert('Error', 'Kategori default tidak dapat dihapus');
+      return;
+    }
+
+    Alert.alert(
+      'Hapus Kategori',
+      `Apakah Anda yakin ingin menghapus kategori "${category.name}"?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(removeExpense(category.name));
+            Alert.alert('Sukses', 'Kategori berhasil dihapus');
+          },
+        },
+      ]
+    );
+  };
+
+  const openEditModal = (category: any) => {
+    if (category.isDefault) {
+      Alert.alert('Info', 'Kategori default tidak dapat diubah');
+      return;
+    }
+    setEditingCategory(category);
+    setNewCategoryName(category.name);
+    setShowCategoryModal(true);
+  };
+
+  const openAddModal = () => {
+    setEditingCategory(null);
+    setNewCategoryName('');
+    setIsAddingCategory(true);
+    setShowCategoryModal(true);
+  };
+
+  const closeModal = () => {
+    setShowCategoryModal(false);
+    setIsAddingCategory(false);
+    setEditingCategory(null);
+    setNewCategoryName('');
+  };
+
+  const renderCategoryItem = ({ item }: { item: any }) => (
+    <View style={styles.categoryItem}>
+      <View style={styles.categoryInfo}>
+        <Text style={styles.categoryName}>{item.name}</Text>
+        {item.isDefault && <Lock size={14} color="#6B7280" />}
+      </View>
+      <View style={styles.categoryActions}>
+        <TouchableOpacity
+          onPress={() => openEditModal(item)}
+          style={styles.actionButton}
+        >
+          <Edit3 size={16} color="#3B82F6" />
+        </TouchableOpacity>
+        {!item.isDefault && (
+          <TouchableOpacity
+            onPress={() => handleDeleteCategory(item)}
+            style={styles.actionButton}
+          >
+            <Trash2 size={16} color="#EF4444" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
   return (
     <ScrollView 
       style={styles.container}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}>
+      
       <View style={styles.header}>
         <Text style={styles.title}>Pengaturan</Text>
         <Text style={styles.subtitle}>Kelola data dan pengaturan aplikasi</Text>
       </View>
 
+      {/* Category Management */}
+      <Card>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Kelola Kategori</Text>
+          <TouchableOpacity onPress={openAddModal} style={styles.addButton}>
+            <Plus size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+        
+        <FlatList
+          data={expenses}
+          renderItem={renderCategoryItem}
+          keyExtractor={item => item.id}
+          scrollEnabled={false}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Belum ada kategori</Text>
+          }
+        />
+      </Card>
+
       {/* Data Management */}
       <Card>
-        <Text style={styles.cardTitle}>Kelola Data</Text>
+        <Text style={styles.cardTitle}>Backup & Restore</Text>
         
         <TouchableOpacity 
           style={styles.actionButton} 
@@ -180,7 +349,6 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
-      {/* Instructions */}
       <Card>
         <Text style={styles.cardTitle}>Petunjuk Backup</Text>
         <Text style={styles.instructionsText}>
@@ -190,6 +358,55 @@ export default function SettingsScreen() {
           • Data hanya tersimpan di perangkat Anda
         </Text>
       </Card>
+
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {isAddingCategory ? 'Tambah Kategori' : 'Edit Kategori'}
+              </Text>
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <X size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              placeholder="Nama kategori"
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={closeModal}
+              >
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.saveButton}
+                onPress={isAddingCategory ? handleAddCategory : handleEditCategory}
+              >
+                <Check size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>
+                  {isAddingCategory ? 'Tambah' : 'Simpan'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -218,18 +435,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   cardTitle: {
     fontSize: 18,
     fontFamily: 'Inter-SemiBold',
     color: '#111827',
-    marginBottom: 16,
   },
-  actionButton: {
-    flexDirection: 'row',
+  addButton: {
+    backgroundColor: '#10B981',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    paddingVertical: 16,
+    justifyContent: 'center',
+  },
+  categoryItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+  },
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#374151',
+    marginRight: 8,
+  },
+  categoryActions: {
+    flexDirection: 'row',
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#6B7280',
+    fontStyle: 'italic',
+    padding: 16,
   },
   actionIcon: {
     width: 40,
@@ -276,10 +531,73 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#6B7280',
   },
-  instructionsText: {
-    fontSize: 14,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter-SemiBold',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
     fontFamily: 'Inter-Regular',
-    color: '#6B7280',
-    lineHeight: 20,
+    color: '#111827',
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#374151',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
+    color: '#FFFFFF',
   },
 });

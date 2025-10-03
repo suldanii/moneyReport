@@ -12,7 +12,7 @@ import { calculateBalance, getChartData, getDateRangeData, getMonthlyData } from
 import { loadTransactions, loadBudgets, loadTransfers } from '@/utils/storage';
 import { formatCurrency } from '@/utils/formatNumber';
 import { FUND_SOURCES } from '@/constants/categories';
-import DateRangeFilter from './DateRangeFilter';
+import DateRangeFilter from '@/components/DateRangeFilter';
 
 // Definisikan tipe untuk chart data
 interface ChartData {
