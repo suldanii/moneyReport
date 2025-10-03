@@ -7,13 +7,12 @@ export const INCOME_CATEGORIES = [
 ];
 
 export const EXPENSE_CATEGORIES = [
-  'Makanan',
+  'Konsumsi',
   'Transport',
-  'Hiburan',
   'Belanja',
   'Tagihan',
-  'Kesehatan',
-  'Pendidikan',
+  'Service',
+  'Hiburan',
   'Lainnya',
 ];
 
