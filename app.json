@@ -30,9 +30,9 @@
         "projectId": "525eb9ef-7aa5-442b-8c1a-26eedec4bb4d"
       }
     },
+    "owner": "kambiang681",
     "android": {
-      "package": "com.syafakanim.boltexponativewind"
-    },
-    "owner": "kambiang681"
+      "package": "com.kambiang681.moneyreport"
+    }
   }
 }
